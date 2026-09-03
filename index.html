@@ -1,726 +1,1646 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cơ chế Transformer & Phân tích bài báo NLNDE</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg: #f5faf7;
-    --bg-alt: #eef8f3;
-    --panel: #ffffff;
-    --ink: #10241f;
-    --ink-soft: #4c6660;
-    --teal: #0e9c78;
-    --teal-deep: #086b53;
-    --violet: #635bff;
-    --coral: #ff6a52;
-    --line: #d7e8e0;
-    --radius: 18px;
-    --gap: 28px;
-    font-size: 16px;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html,body{
-    background: var(--bg);
-    color: var(--ink);
-    font-family: 'Manrope', sans-serif;
-    scroll-behavior: smooth;
-    overflow-x: hidden;
-  }
-  body{
-    height: 100vh;
-    overflow-y: scroll;
-    scroll-snap-type: y mandatory;
-  }
-  ::selection{ background: var(--teal); color: #fff; }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vietnamese Medical NER - Slide trình bày</title>
+  <style>
+    :root {
+      --ink: #172026;
+      --muted: #5c6873;
+      --line: #dfe5ea;
+      --paper: #f7f9fb;
+      --white: #ffffff;
+      --teal: #0f8b8d;
+      --green: #2f9e44;
+      --blue: #276fbf;
+      --coral: #e76f51;
+      --gold: #f2b84b;
+      --violet: #725ac1;
+      --shadow: 0 18px 45px rgba(23, 32, 38, 0.13);
+      --radius: 8px;
+    }
 
-  /* background texture: helix + node lattice, fixed */
-  .bg-rail{
-    position: fixed;
-    top:0; left:0; height:100vh; width: 100%;
-    pointer-events:none;
-    z-index:0;
-    opacity: .55;
-  }
+    * {
+      box-sizing: border-box;
+    }
 
-  section.slide{
-    position: relative;
-    min-height: 100vh;
-    width: 100%;
-    scroll-snap-align: start;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 64px 8vw 64px calc(8vw + 46px);
-    z-index: 1;
-    border-bottom: 1px solid transparent;
-  }
-  section.slide::before{ /* left spine per-slide accent */
-    content:"";
-    position:absolute; left: 34px; top: 54px; bottom: 54px; width: 2px;
-    background: linear-gradient(180deg, transparent, var(--line) 12%, var(--line) 88%, transparent);
-  }
-  section.slide::after{
-    content:"";
-    position:absolute; left: 34px; top: 54px; width: 10px; height:10px; border-radius:50%;
-    background: var(--teal); transform: translate(-4px,-4px);
-    box-shadow: 0 0 0 4px rgba(14,156,120,.15);
-  }
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      overflow: hidden;
+    }
 
-  .eyebrow{
-    display:inline-flex; align-items:center; gap:10px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size: .78rem; letter-spacing:.14em; text-transform:uppercase;
-    color: var(--teal-deep);
-    background: var(--bg-alt);
-    border: 1px solid var(--line);
-    padding: 6px 14px 6px 10px;
-    border-radius: 999px;
-    width:max-content;
-    margin-bottom: 22px;
-  }
-  .eyebrow .dot{ width:7px; height:7px; border-radius:50%; background: var(--coral); }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(15, 139, 141, 0.07) 0 1px, transparent 1px 100%),
+        linear-gradient(0deg, rgba(231, 111, 81, 0.05) 0 1px, transparent 1px 100%);
+      background-size: 42px 42px;
+      opacity: 0.55;
+    }
 
-  h1.title{
-    font-family:'Space Grotesk', sans-serif;
-    font-weight: 700;
-    font-size: clamp(2rem, 3.6vw, 3.4rem);
-    line-height: 1.08;
-    color: var(--ink);
-    max-width: 18ch;
-    letter-spacing: -.01em;
-  }
-  h1.title em{
-    font-style: normal;
-    color: var(--teal-deep);
-    background: linear-gradient(180deg, transparent 62%, rgba(14,156,120,.22) 62%);
-  }
-  h2.subtitle{
-    font-family:'Manrope', sans-serif;
-    font-weight: 500;
-    font-size: clamp(1rem, 1.3vw, 1.25rem);
-    color: var(--ink-soft);
-    max-width: 62ch;
-    margin-top: 18px;
-    line-height:1.55;
-  }
+    .deck {
+      height: 100vh;
+      width: 100vw;
+      position: relative;
+      overflow: hidden;
+    }
 
-  .slide-num{
-    position:absolute; top:40px; right:6vw;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:.78rem; color:var(--ink-soft);
-    letter-spacing:.08em;
-  }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: clamp(18px, 2vw, 28px);
+      padding: clamp(34px, 5vw, 72px);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(28px) scale(0.985);
+      transition: opacity 240ms ease, transform 240ms ease;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 249, 251, 0.96)),
+        var(--paper);
+    }
 
-  /* ---------- nav dots ---------- */
-  nav.dots{
-    position: fixed; right: 22px; top:50%; transform:translateY(-50%);
-    display:flex; flex-direction:column; gap:10px;
-    z-index: 50;
-  }
-  nav.dots a{
-    width:9px; height:9px; border-radius:50%;
-    background: #c9ddd4; border: none; display:block;
-    transition: all .25s ease;
-  }
-  nav.dots a.active{ background: var(--teal); transform: scale(1.35); }
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+    }
 
-  /* progress bar */
-  .progress{
-    position: fixed; top:0; left:0; height:3px; width:0%;
-    background: linear-gradient(90deg, var(--teal), var(--violet));
-    z-index: 60; transition: width .1s linear;
-  }
+    .slide.compact {
+      gap: 16px;
+      padding-top: clamp(24px, 3.6vw, 48px);
+      padding-bottom: clamp(24px, 3.6vw, 48px);
+    }
 
-  /* ---------- generic content blocks ---------- */
-  .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin-top:36px; }
-  .grid-3{ display:grid; grid-template-columns: repeat(3,1fr); gap: 20px; margin-top:32px; }
+    .slide.cover {
+      grid-template-rows: 1fr auto;
+      background:
+        linear-gradient(125deg, rgba(15, 139, 141, 0.13), rgba(231, 111, 81, 0.08) 45%, rgba(242, 184, 75, 0.11)),
+        #fbfcfd;
+    }
 
-  .card{
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 26px 26px;
-    box-shadow: 0 1px 2px rgba(16,36,31,.03);
-  }
-  .card h3{
-    font-family:'Space Grotesk',sans-serif; font-size:1.05rem; font-weight:600;
-    color: var(--teal-deep); margin-bottom: 12px; display:flex; align-items:center; gap:10px;
-  }
-  .card h3 .tag{
-    font-family:'IBM Plex Mono',monospace; font-size:.68rem; letter-spacing:.08em;
-    background: var(--bg-alt); border:1px solid var(--line); color:var(--ink-soft);
-    padding:2px 8px; border-radius:999px;
-  }
-  .card p, .card li{ color: var(--ink-soft); font-size:.94rem; line-height:1.6; }
-  .card ul{ padding-left: 1.1em; margin-top:6px; }
-  .card li{ margin-bottom:6px; }
-  .card b{ color: var(--ink); }
+    .cover .cover-inner {
+      align-self: center;
+      max-width: 1120px;
+    }
 
-  .card.accent-violet h3{ color:#4a42d6; }
-  .card.accent-coral h3{ color:#d94b34; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 20px;
+      color: var(--teal);
+      font-size: clamp(14px, 1.3vw, 18px);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
 
-  ul.bullets{ list-style:none; margin-top: 24px; max-width: 60ch; }
-  ul.bullets li{
-    position:relative; padding-left: 26px; margin-bottom: 14px;
-    color: var(--ink-soft); font-size:1.02rem; line-height:1.6;
-  }
-  ul.bullets li::before{
-    content:""; position:absolute; left:0; top:.5em; width:8px; height:8px;
-    border-radius:2px; background: var(--teal); transform: rotate(45deg);
-  }
-  ul.bullets li b{ color:var(--ink); }
+    .eyebrow::before {
+      content: "";
+      width: 42px;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--coral);
+    }
 
-  .content-row{ display:flex; gap: 48px; align-items:flex-start; margin-top: 30px; flex-wrap: wrap; }
-  .content-row .text-col{ flex: 1 1 360px; }
-  .content-row .img-col{ flex: 1 1 420px; }
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
 
-  .fig{
-    background: var(--panel); border:1px solid var(--line); border-radius: var(--radius);
-    padding: 14px; box-shadow: 0 4px 22px rgba(16,36,31,.06);
-  }
-  .fig img{ width:100%; display:block; border-radius: 10px; }
-  .fig figcaption{
-    font-family:'IBM Plex Mono',monospace; font-size:.72rem; color: var(--ink-soft);
-    text-align:center; margin-top:10px; letter-spacing:.03em;
-  }
+    h1,
+    h2,
+    h3,
+    .lead {
+      overflow-wrap: anywhere;
+    }
 
-  /* formula styling */
-  .formula-box{
-    font-family:'IBM Plex Mono', monospace;
-    background: var(--bg-alt);
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--teal);
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin: 14px 0;
-    font-size: .95rem;
-    color: var(--teal-deep);
-    overflow-x:auto;
-    white-space: nowrap;
-  }
-  .formula-box .lbl{
-    display:block; font-family:'Manrope',sans-serif; font-size:.72rem;
-    color: var(--ink-soft); margin-bottom: 6px; letter-spacing:.02em;
-  }
-  .frac{ display:inline-flex; flex-direction:column; vertical-align:middle; margin:0 3px; text-align:center; line-height:1.1; }
-  .frac span{ display:block; padding: 0 3px; }
-  .frac .num{ border-bottom: 1.4px solid currentColor; padding-bottom:1px;}
-  sup, sub{ font-size: .7em; }
-  .sqrt{ border-top: 1.4px solid currentColor; padding: 0 3px; }
+    h1 {
+      max-width: 1050px;
+      font-size: clamp(46px, 7vw, 92px);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
 
-  table.results{
-    width:100%; border-collapse: collapse; margin-top: 26px;
-    font-size:.88rem; background:var(--panel); border-radius: var(--radius); overflow:hidden;
-    border:1px solid var(--line);
-  }
-  table.results th, table.results td{
-    padding: 10px 14px; text-align:center; border-bottom: 1px solid var(--line);
-  }
-  table.results thead th{
-    background: var(--bg-alt); color: var(--teal-deep); font-family:'IBM Plex Mono',monospace;
-    font-size:.72rem; letter-spacing:.05em; text-transform:uppercase;
-  }
-  table.results td:first-child, table.results th:first-child{ text-align:left; }
-  table.results tr.hl td{ background: rgba(14,156,120,.08); font-weight:700; color:var(--teal-deep); }
+    h2 {
+      font-size: clamp(31px, 4.6vw, 58px);
+      line-height: 1.03;
+      letter-spacing: 0;
+    }
 
-  .pill-row{ display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
-  .pill{
-    font-family:'IBM Plex Mono',monospace; font-size:.75rem; color:var(--ink-soft);
-    border:1px solid var(--line); background:var(--panel); padding:5px 12px; border-radius:999px;
-  }
+    h3 {
+      font-size: clamp(18px, 2vw, 28px);
+      line-height: 1.16;
+    }
 
-  .kicker-num{
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:2.6rem;
-    color: rgba(14,156,120,.18); position:absolute; right:8vw; top:34px; line-height:1;
-  }
+    .lead {
+      max-width: 880px;
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: clamp(19px, 2.1vw, 29px);
+      line-height: 1.36;
+    }
 
-  /* title slide specific */
-  .title-slide{ justify-content:center; }
-  .title-meta{
-    margin-top: 46px; display:flex; gap: 42px; flex-wrap:wrap;
-  }
-  .title-meta div{ font-size:.92rem; }
-  .title-meta .k{ font-family:'IBM Plex Mono',monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin-bottom:4px;}
-  .title-meta .v{ font-weight:700; color:var(--ink); font-size:1.05rem; }
+    .subtitle {
+      color: var(--muted);
+      font-size: clamp(16px, 1.4vw, 20px);
+      line-height: 1.45;
+    }
 
-  .helix-deco{
-    position:absolute; right: 4vw; top: 50%; transform: translateY(-50%);
-    width: min(30vw, 420px); opacity:.9;
-  }
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
 
-  .final-cta{
-    text-align:center; width:100%;
-  }
-  .final-cta h1{ max-width: none; }
-  .final-cta .title-meta{ justify-content:center; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #31404c;
+      background: rgba(255, 255, 255, 0.86);
+      font-size: 14px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
 
-  footer.small{
-    position:absolute; bottom: 30px; left: calc(8vw + 46px); right:6vw;
-    display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace;
-    font-size:.7rem; color: var(--ink-soft); letter-spacing:.04em;
-  }
+    .slide-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: end;
+    }
 
-  @media (max-width: 820px){
-    section.slide{ padding: 56px 6vw 64px 60px; }
-    section.slide::before, section.slide::after{ left: 20px; }
-    .grid-2, .content-row{ grid-template-columns: 1fr; flex-direction:column; }
-    .grid-3{ grid-template-columns: 1fr; }
-    nav.dots{ display:none; }
-    .helix-deco{ display:none; }
-    .kicker-num{ display:none; }
-    footer.small{ left:6vw; }
-  }
-</style>
+    .slide-no {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--white);
+      font-weight: 850;
+      font-size: 15px;
+    }
+
+    .content {
+      min-height: 0;
+      display: grid;
+      align-content: center;
+      gap: clamp(16px, 2vw, 24px);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(18px, 2.2vw, 30px);
+      align-items: stretch;
+    }
+
+    .two-col.wide-left {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: clamp(14px, 1.8vw, 24px);
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+      padding: clamp(18px, 2vw, 28px);
+      min-width: 0;
+    }
+
+    .panel.flat {
+      box-shadow: none;
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .panel h3 {
+      margin-bottom: 14px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .bullets {
+      display: grid;
+      gap: 12px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+      color: #26333d;
+      font-size: clamp(17px, 1.35vw, 21px);
+      line-height: 1.35;
+    }
+
+    .bullets li {
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .bullets li::before {
+      content: "";
+      position: absolute;
+      top: 0.72em;
+      left: 0;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--teal);
+      transform: translateY(-50%);
+    }
+
+    .bullets li:nth-child(2)::before {
+      background: var(--coral);
+    }
+
+    .bullets li:nth-child(3)::before {
+      background: var(--gold);
+    }
+
+    .bullets li:nth-child(4)::before {
+      background: var(--blue);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--teal);
+      border-radius: var(--radius);
+      background: var(--white);
+      padding: 15px 16px;
+      min-height: 112px;
+    }
+
+    .stat:nth-child(2) {
+      border-left-color: var(--coral);
+    }
+
+    .stat:nth-child(3) {
+      border-left-color: var(--gold);
+    }
+
+    .stat:nth-child(4) {
+      border-left-color: var(--blue);
+    }
+
+    .stat-value {
+      display: block;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .stat-label {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-weight: 750;
+      font-size: clamp(13px, 1.1vw, 16px);
+      line-height: 1.25;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .pipeline-flow {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .flow-step {
+      min-height: 125px;
+      display: grid;
+      align-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-radius: var(--radius);
+      color: var(--white);
+      font-weight: 800;
+      background: var(--teal);
+    }
+
+    .flow-step:nth-child(2) {
+      background: var(--blue);
+    }
+
+    .flow-step:nth-child(3) {
+      background: var(--coral);
+    }
+
+    .flow-step:nth-child(4) {
+      background: var(--green);
+    }
+
+    .flow-step:nth-child(5) {
+      background: var(--violet);
+    }
+
+    .flow-step:nth-child(6) {
+      background: #38434f;
+    }
+
+    .flow-step small {
+      color: rgba(255, 255, 255, 0.82);
+      font-weight: 700;
+    }
+
+    .flow-step span {
+      display: grid;
+      gap: 6px;
+    }
+
+    .flow-step em {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 12px;
+      line-height: 1.25;
+      font-style: normal;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: var(--white);
+      font-size: clamp(15px, 1.22vw, 20px);
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #26333d;
+      background: #eef4f6;
+      font-size: clamp(12px, 1vw, 15px);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td.num,
+    th.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .delta {
+      color: var(--green);
+      font-weight: 850;
+    }
+
+    .warn {
+      color: #9a3412;
+      font-weight: 800;
+    }
+
+    .metric-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .metric-card {
+      min-height: 130px;
+      border-radius: var(--radius);
+      padding: 18px;
+      color: var(--white);
+      background: var(--teal);
+    }
+
+    .metric-card:nth-child(2) {
+      background: var(--coral);
+    }
+
+    .metric-card:nth-child(3) {
+      background: var(--blue);
+    }
+
+    .metric-card:nth-child(4) {
+      background: var(--green);
+    }
+
+    .metric-card span {
+      display: block;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-card strong {
+      display: block;
+      margin-top: 12px;
+      font-size: clamp(28px, 4.4vw, 56px);
+      line-height: 1;
+    }
+
+    .code {
+      margin: 0;
+      padding: 16px;
+      border-radius: var(--radius);
+      color: #eaf2f2;
+      background: #192027;
+      font-size: clamp(13px, 1vw, 16px);
+      line-height: 1.45;
+      overflow: auto;
+      max-height: 42vh;
+      white-space: pre-wrap;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #21313a;
+      background: #e9f6f5;
+      border: 1px solid #cbe9e8;
+      font-size: clamp(12px, 0.95vw, 15px);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .chart-row {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bar-line {
+      display: grid;
+      grid-template-columns: 160px 1fr 56px;
+      gap: 12px;
+      align-items: center;
+      font-size: clamp(13px, 1.05vw, 16px);
+      color: #26333d;
+    }
+
+    .bar-track {
+      height: 15px;
+      border-radius: 999px;
+      background: #e9edf1;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--teal), var(--gold));
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .matrix-content {
+      display: grid;
+      gap: 14px;
+      align-content: center;
+      min-height: 0;
+    }
+
+    .matrix-content .figure.large img {
+      max-height: 49vh;
+    }
+
+    .matrix-notes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .matrix-note {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--teal);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.86);
+      padding: 13px 15px;
+      color: #26333d;
+      font-size: clamp(13px, 1vw, 16px);
+      line-height: 1.35;
+    }
+
+    .matrix-note:nth-child(2) {
+      border-left-color: var(--coral);
+    }
+
+    .matrix-note b {
+      color: var(--ink);
+    }
+
+    .figure {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+      min-height: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--white);
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    .figure figcaption {
+      color: var(--muted);
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .figure img {
+      width: 100%;
+      height: 100%;
+      max-height: 56vh;
+      object-fit: contain;
+      display: block;
+      background: var(--white);
+      border-radius: 4px;
+    }
+
+    .figure.large img {
+      max-height: 67vh;
+    }
+
+    .callout {
+      border-left: 6px solid var(--coral);
+      background: #fff7f3;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      color: #3b2a22;
+      font-size: clamp(17px, 1.35vw, 21px);
+      line-height: 1.4;
+    }
+
+    .result-banner {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 18px;
+      align-items: center;
+      padding: 20px;
+      border-radius: var(--radius);
+      color: var(--white);
+      background: linear-gradient(100deg, var(--green), var(--teal));
+    }
+
+    .result-banner strong {
+      font-size: clamp(38px, 6vw, 74px);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-banner span {
+      display: block;
+      margin-top: 6px;
+      font-size: clamp(16px, 1.35vw, 22px);
+      color: rgba(255, 255, 255, 0.87);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .timeline-item:last-child {
+      border-bottom: 0;
+    }
+
+    .timeline-item b {
+      color: var(--teal);
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .timeline-item p {
+      color: #26333d;
+      font-size: clamp(16px, 1.25vw, 20px);
+      line-height: 1.35;
+    }
+
+    .quote {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      border-radius: var(--radius);
+      background: #edf7f2;
+      border: 1px solid #cce8d7;
+      color: #183629;
+      font-size: clamp(16px, 1.2vw, 19px);
+      line-height: 1.38;
+    }
+
+    .quote b {
+      color: #22613f;
+    }
+
+    .compact-table {
+      font-size: clamp(13px, 1vw, 16px);
+    }
+
+    .compact-table th,
+    .compact-table td {
+      padding: 10px 11px;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    .table-scroll table {
+      min-width: 620px;
+    }
+
+    .dense-bullets {
+      gap: 9px;
+      font-size: clamp(14px, 1.05vw, 17px);
+      line-height: 1.35;
+    }
+
+    .mini-kicker {
+      display: inline-flex;
+      width: fit-content;
+      margin-bottom: 12px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: #23313a;
+      background: #f4e7c4;
+      border: 1px solid #ead191;
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .split-notes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .note-box {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      padding: 14px;
+    }
+
+    .note-box h3 {
+      margin-bottom: 8px;
+      font-size: clamp(16px, 1.35vw, 21px);
+    }
+
+    .note-box p {
+      color: #26333d;
+      font-size: clamp(14px, 1.05vw, 17px);
+      line-height: 1.38;
+    }
+
+    .footer-note {
+      align-self: end;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .nav {
+      position: fixed;
+      right: 20px;
+      bottom: 18px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 25px rgba(23, 32, 38, 0.12);
+    }
+
+    .nav button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      color: var(--white);
+      background: var(--ink);
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .nav button:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .counter {
+      min-width: 66px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 850;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress {
+      position: fixed;
+      inset: auto 0 0 0;
+      z-index: 21;
+      height: 5px;
+      background: rgba(23, 32, 38, 0.08);
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--teal), var(--coral), var(--gold));
+      transition: width 220ms ease;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: clamp(13px, 1vw, 16px);
+      line-height: 1.4;
+    }
+
+    .fit-text {
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 920px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        min-height: 100vh;
+        height: auto;
+      }
+
+      .slide {
+        position: relative;
+        min-height: 100vh;
+        display: none;
+        padding: 28px 18px 84px;
+      }
+
+      .slide.active {
+        display: grid;
+      }
+
+      .slide-header {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .slide-no {
+        width: 38px;
+        height: 38px;
+      }
+
+      .two-col,
+      .two-col.wide-left,
+      .three-col,
+      .stat-grid,
+      .metric-cards,
+      .image-grid,
+      .flow,
+      .split-notes,
+      .matrix-notes {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step {
+        min-height: 86px;
+      }
+
+      .bar-line {
+        grid-template-columns: 112px 1fr 48px;
+      }
+
+      .timeline-item {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+
+      .figure img {
+        max-height: 52vh;
+      }
+
+      table {
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 10px 8px;
+      }
+    }
+
+    @media print {
+      html,
+      body {
+        height: auto;
+        overflow: visible;
+        background: #fff;
+      }
+
+      body::before,
+      .nav,
+      .progress {
+        display: none;
+      }
+
+      .deck {
+        height: auto;
+        overflow: visible;
+      }
+
+      .slide {
+        position: relative;
+        page-break-after: always;
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+        min-height: 100vh;
+      }
+    }
+  </style>
 </head>
 <body>
+  <main class="deck" id="deck">
+    <section class="slide cover active" data-title="Cover">
+      <div class="cover-inner">
+        <p class="eyebrow">Vietnamese Medical NER</p>
+        <h1>Nhận diện thực thể y tế tiếng Việt</h1>
+        <p class="lead">Baseline PhoBERT và Improved PhoBERT + BiLSTM + CRF trên ViMedNER</p>
+        <div class="meta-row">
+          <span class="pill">Người thực hiện: Trần Công Tuấn</span>
+          <span class="pill">MSV: 24022485</span>
+        </div>
+        <div class="meta-row">
+          <span class="pill">Dataset: ViMedNER</span>
+          <span class="pill">Labels BIO: 11 nhãn</span>
+          <span class="pill">Metric: entity-level Precision / Recall / F1</span>
+        </div>
 
-<div class="progress" id="progress"></div>
-
-<svg class="bg-rail" viewBox="0 0 1600 1000" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0e9c78" stop-opacity="0.08"/>
-      <stop offset="1" stop-color="#635bff" stop-opacity="0.06"/>
-    </linearGradient>
-  </defs>
-  <circle cx="1450" cy="120" r="260" fill="url(#gA)"/>
-  <circle cx="60" cy="880" r="220" fill="url(#gA)"/>
-</svg>
-
-<nav class="dots" id="dots"></nav>
-
-<!-- ============ SLIDE 1 : TITLE ============ -->
-<section class="slide title-slide" id="s1">
-  <div class="eyebrow"><span class="dot"></span>[DSKT LAB] · BIONLP — TEST REPORT</div>
-  <h1 class="title">Cơ chế <em>Transformer</em> &amp; Phân tích bài báo NLNDE</h1>
-  <h2 class="subtitle">Báo cáo kết quả bài kiểm tra đầu vào tuyển chọn — DSKT Lab. Phần 1: cơ chế Transformer. Phần 2: phân tích bài báo Bio-NLP (PharmaCoNER / BioNLP-OST 2019).</h2>
-  <div class="title-meta">
-    <div><div class="k">Người thực hiện</div><div class="v">Trần Công Tuấn</div></div>
-    <div><div class="k">MSV / Email</div><div class="v">24022485 — 24022485@vnu.edu.vn</div></div>
-    <div><div class="k">Ngày báo cáo</div><div class="v">17 / 08 / 2026</div></div>
-  </div>
-  <svg class="helix-deco" viewBox="0 0 220 420" xmlns="http://www.w3.org/2000/svg" fill="none">
-    <path d="M20 10 C 90 60, 130 100, 200 150 C 130 200, 90 240, 20 290 C 90 340, 130 370, 200 410" stroke="#0e9c78" stroke-width="2.5" opacity="0.55"/>
-    <path d="M200 10 C 130 60, 90 100, 20 150 C 90 200, 130 240, 200 290 C 130 340, 90 370, 20 410" stroke="#635bff" stroke-width="2.5" opacity="0.55"/>
-    <g stroke="#0e9c78" stroke-width="1.4" opacity="0.35">
-      <line x1="35" y1="30" x2="185" y2="30"/><line x1="60" y1="65" x2="160" y2="65"/>
-      <line x1="90" y1="100" x2="130" y2="100"/><line x1="115" y1="130" x2="105" y2="130"/>
-      <line x1="90" y1="165" x2="130" y2="165"/><line x1="60" y1="195" x2="160" y2="195"/>
-      <line x1="35" y1="225" x2="185" y2="225"/><line x1="60" y1="255" x2="160" y2="255"/>
-      <line x1="90" y1="285" x2="130" y2="285"/><line x1="115" y1="315" x2="105" y2="315"/>
-      <line x1="90" y1="345" x2="130" y2="345"/><line x1="60" y1="375" x2="160" y2="375"/>
-    </g>
-    <circle cx="20" cy="10" r="5" fill="#0e9c78"/><circle cx="200" cy="150" r="5" fill="#0e9c78"/>
-    <circle cx="20" cy="290" r="5" fill="#635bff"/><circle cx="200" cy="410" r="5" fill="#635bff"/>
-  </svg>
-  <footer class="small"><span>DSKT LAB — BIONLP TEST</span><span>01 / 16</span></footer>
-</section>
-
-<!-- ============ SLIDE 2 : OVERVIEW ============ -->
-<section class="slide" id="s2">
-  <div class="eyebrow"><span class="dot"></span>Tổng quan bài thuyết trình</div>
-  <h1 class="title" style="max-width:24ch;">Hai phần nội dung chính</h1>
-  <div class="grid-2">
-    <div class="card">
-      <h3><span class="tag">PHẦN 1</span> Transformer Network</h3>
-      <ul>
-        <li>Động lực ra đời &amp; cơ chế <b>Self-Attention</b></li>
-        <li><b>Multi-Head Attention</b> — song song hoá các không gian con</li>
-        <li>Các phương pháp <b>Positional Encoding</b> (Sinusoidal / Learned / RoPE)</li>
-        <li>Cấu trúc một <b>Transformer Block</b> (MHA + FFN, residual, LayerNorm)</li>
-        <li>Kiến trúc hoàn chỉnh &amp; ba họ mô hình: Encoder–Decoder, Encoder-only, Decoder-only</li>
-      </ul>
-    </div>
-    <div class="card accent-violet">
-      <h3><span class="tag" style="color:#4a42d6;">PHẦN 2</span> Bài báo NLNDE — BioNLP-OST 2019</h3>
-      <ul>
-        <li><i>"NLNDE: Enhancing Neural Sequence Taggers with Attention and Noisy Channel for Robust Pharmacological Entity Detection"</i></li>
-        <li>Bài toán <b>PharmaCoNER</b> — gán nhãn thực thể dược lý tiếng Tây Ban Nha</li>
-        <li>Kiến trúc đa nguồn embedding + cơ chế <b>Attention selection</b></li>
-        <li>Huấn luyện bền vững với <b>Noisy Channel</b> trên dữ liệu bán giám sát</li>
-        <li>Kết quả thực nghiệm, điểm mạnh, hạn chế và các trường hợp thành/bại</li>
-      </ul>
-    </div>
-  </div>
-  <footer class="small"><span>TỔNG QUAN</span><span>02 / 16</span></footer>
-</section>
-
-<!-- ============ SLIDE 3 : MOTIVATION ============ -->
-<section class="slide" id="s3">
-  <div class="eyebrow"><span class="dot"></span>Phần 1 · Transformer</div>
-  <h1 class="title">Động lực: vì sao cần Self-Attention?</h1>
-  <div class="content-row">
-    <div class="text-col">
-      <div class="card accent-coral">
-        <h3><span class="tag" style="color:#d94b34;">VẤN ĐỀ</span> Kiến trúc tuần tự (RNN / GRU / LSTM)</h3>
-        <ul>
-          <li><b>Sequential bottleneck:</b> xử lý từng bước, không thể song song hoá hiệu quả trên GPU</li>
-          <li><b>Vanishing Gradient:</b> khó ghi nhớ các phụ thuộc xa (long-range dependencies)</li>
-        </ul>
       </div>
-    </div>
-    <div class="text-col">
-      <div class="card">
-        <h3><span class="tag">GIẢI PHÁP</span> Self-Attention</h3>
-        <ul>
-          <li>Mọi token kết nối <b>trực tiếp</b> với mọi token khác chỉ qua một bước tính toán</li>
-          <li>Mô hình hoá ngữ cảnh toàn cục (global context) một cách <b>đồng thời</b></li>
-          <li>Song song hoá toàn diện → tận dụng tối đa phần cứng GPU/TPU</li>
-        </ul>
+    </section>
+
+    <section class="slide" data-title="Goal">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">01 - Mục tiêu</p>
+          <h2>Bài toán cần giải</h2>
+        </div>
+        <div class="slide-no">01</div>
+      </header>
+      <div class="content two-col wide-left">
+        <div class="panel">
+          <h3>Named Entity Recognition cho văn bản y tế</h3>
+          <ul class="bullets">
+            <li>Đầu vào là câu tiếng Việt đã tách theo token, mỗi token có nhãn BIO.</li>
+            <li>Mô hình cần nhận ra 5 nhóm thực thể: tên bệnh, triệu chứng, nguyên nhân, biện pháp chẩn đoán, biện pháp điều trị.</li>
+            <li>Đánh giá chính dùng entity-level Precision, Recall và F1 bằng `seqeval`.</li>
+            <li>Test set chỉ được dùng để báo cáo kết quả cuối sau khi chốt mô hình.</li>
+          </ul>
+        </div>
+        <div class="panel flat">
+          <h3>Các nhãn chính</h3>
+          <div class="tag-list">
+            <span class="tag">B/I-ten_benh</span>
+            <span class="tag">B/I-trieu_chung_benh</span>
+            <span class="tag">B/I-nguyen_nhan_benh</span>
+            <span class="tag">B/I-bien_phap_chan_doan</span>
+            <span class="tag">B/I-bien_phap_dieu_tri</span>
+            <span class="tag">O</span>
+          </div>
+          <p class="callout" style="margin-top:18px">Ý tưởng trình bày: biến bài toán từ “gán nhãn token” thành câu chuyện cân bằng giữa bắt đúng ranh giới entity và phân loại đúng ngữ nghĩa y tế.</p>
+        </div>
       </div>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 1 — ĐỘNG LỰC</span><span>03 / 16</span></footer>
-</section>
+    </section>
 
-<!-- ============ SLIDE 4 : SELF ATTENTION ============ -->
-<section class="slide" id="s4">
-  <div class="eyebrow"><span class="dot"></span>Phần 1 · Transformer</div>
-  <h1 class="title" style="max-width:26ch;">Cơ chế Self-Attention</h1>
-  <div class="content-row">
-    <div class="text-col">
-      <div class="formula-box">
-        <span class="lbl">Phép chiếu tuyến tính Q, K, V</span>
-        Q = W<sup>Q</sup>X + β<sub>q</sub> &nbsp; K = W<sup>K</sup>X + β<sub>k</sub> &nbsp; V = W<sup>V</sup>X + β<sub>v</sub>
+    <section class="slide" data-title="Data">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">02 - Data Analysis</p>
+          <h2>Dữ liệu có lệch nhãn và entity dài</h2>
+        </div>
+        <div class="slide-no">02</div>
+      </header>
+      <div class="content">
+        <div class="stat-grid">
+          <div class="stat"><span class="stat-value">4,573</span><span class="stat-label">câu train</span></div>
+          <div class="stat"><span class="stat-value">36.54</span><span class="stat-label">token/câu trung bình</span></div>
+          <div class="stat"><span class="stat-value">120</span><span class="stat-label">token/câu dài nhất</span></div>
+          <div class="stat"><span class="stat-value">76.15%</span><span class="stat-label">token nhãn O</span></div>
+        </div>
+        <div class="two-col">
+          <div class="panel">
+            <h3>Insight từ EDA</h3>
+            <ul class="bullets">
+              <li>Nhãn `O` chiếm đa số, entity chỉ khoảng `23.85%` token, nên model dễ bỏ sót thực thể.</li>
+              <li>Nhiều entity dài: `>= 9` token xuất hiện trong `372` câu train.</li>
+              <li>`nguyen_nhan_benh` ít và khó, có nguy cơ recall thấp hơn các nhóm phổ biến như `ten_benh`.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Độ dài thực thể theo số câu</h3>
+            <div class="chart-row">
+              <div class="bar-line"><span>1 token</span><div class="bar-track"><div class="bar-fill" style="width:34%"></div></div><b>642</b></div>
+              <div class="bar-line"><span>2 token</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><b>1894</b></div>
+              <div class="bar-line"><span>3 token</span><div class="bar-track"><div class="bar-fill" style="width:95%"></div></div><b>1801</b></div>
+              <div class="bar-line"><span>4 token</span><div class="bar-track"><div class="bar-fill" style="width:84%"></div></div><b>1593</b></div>
+              <div class="bar-line"><span>5 token</span><div class="bar-track"><div class="bar-fill" style="width:48%"></div></div><b>917</b></div>
+              <div class="bar-line"><span>6 token</span><div class="bar-track"><div class="bar-fill" style="width:24%"></div></div><b>449</b></div>
+              <div class="bar-line"><span>7 token</span><div class="bar-track"><div class="bar-fill" style="width:12%"></div></div><b>232</b></div>
+              <div class="bar-line"><span>8 token</span><div class="bar-track"><div class="bar-fill" style="width:8%"></div></div><b>153</b></div>
+              <div class="bar-line"><span>&gt;= 9 token</span><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div><b>372</b></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="formula-box">
-        <span class="lbl">Scaled Dot-Product Attention</span>
-        Attention(Q,K,V) = softmax( QK<sup>T</sup> / <span class="sqrt">√d<sub>k</sub></span> )·V
+    </section>
+
+    <section class="slide compact" data-title="Pipeline">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">03 - Pipeline</p>
+          <h2>Preprocessing và label alignment giữa word và subword</h2>
+        </div>
+        <div class="slide-no">03</div>
+      </header>
+      <div class="content two-col">
+        <div class="panel">
+          <h3>Luồng xử lý</h3>
+          <div class="flow pipeline-flow">
+            <div class="flow-step"><small>Step 1</small><span>Đọc CoNLL BIO<em>mỗi dòng gồm token và nhãn</em></span></div>
+            <div class="flow-step"><small>Step 2</small><span>Map label -> id<em>11 nhãn BIO, gồm cả O</em></span></div>
+            <div class="flow-step"><small>Step 3</small><span>PhoBERT tokenizer<em>một word có thể thành nhiều subword</em></span></div>
+            <div class="flow-step"><small>Step 4</small><span>Align subword<em>đưa nhãn word xuống subword</em></span></div>
+            <div class="flow-step"><small>Step 5</small><span>Pad / truncate 128<em>giữ attention_mask cho token thật</em></span></div>
+            <div class="flow-step"><small>Step 6</small><span>Evaluate entity-level<em>gom BIO span rồi tính P/R/F1</em></span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Ví dụ minh họa alignment khi tokenizer tách word</h3>
+          <div class="table-scroll">
+            <table class="compact-table">
+              <thead>
+                <tr><th>Trường hợp</th><th>Subword 1</th><th>Subword 2</th><th>Ý nghĩa</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Token gốc</td>
+                  <td>`thiếu@@`</td>
+                  <td>`sắt`</td>
+                  <td>cùng thuộc một word/entity</td>
+                </tr>
+                <tr>
+                  <td>Gold word label</td>
+                  <td colspan="2">`I-ten_benh`</td>
+                  <td>nhãn ban đầu chỉ có ở cấp word</td>
+                </tr>
+                <tr>
+                  <td>Baseline</td>
+                  <td>`I-ten_benh`</td>
+                  <td>`-100`</td>
+                  <td>subword phụ bị bỏ qua khi tính loss</td>
+                </tr>
+                <tr>
+                  <td>Improved + CRF</td>
+                  <td>`I-ten_benh`</td>
+                  <td>`I-ten_benh`</td>
+                  <td>CRF nhận chuỗi nhãn đầy đủ hơn</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="stack" style="margin-top:12px">
+            <p class="small">`-100` không phải nhãn thật; đó là giá trị ignore index để CrossEntropy không tính loss tại vị trí đó.</p>
+            <p class="small">Trong improved model, CRF đọc nhãn theo cả chuỗi sau tokenizer. 
+              Vì vậy, nếu một word bị tách thành nhiều subword, 
+              các subword đó đều nhận lại nhãn của word gốc. 
+              Padding chỉ được thêm vào cho đủ độ dài 128; dù gán tạm là `O`, 
+              các vị trí này có `attention_mask = 0` nên CRF bỏ qua khi tính loss và khi dự đoán. 
+              Riêng nhãn đầu câu và cuối câu là token biên thật nên được giữ với nhãn `O` (attention_mask = 1).</p>
+          </div>
+        </div>
       </div>
-      <ul class="bullets" style="margin-top:20px;">
-        <li><b>Query</b> — token "đang hỏi" cần thông tin gì; <b>Key</b> — token "được hỏi" mang đặc trưng gì để so khớp; <b>Value</b> — nội dung thực sự được truyền đi.</li>
-        <li>Chia cho <b>√d<sub>k</sub></b> giữ phương sai của tích vô hướng quanh mức 1.0, tránh softmax rơi vào vùng gradient cực nhỏ.</li>
-      </ul>
-    </div>
-    <div class="img-col">
-      <figure class="fig">
-        <img src="self_attention.png" alt="Sơ đồ cơ chế Self-Attention">
-        <figcaption>Hình 1 — Cơ chế Self-Attention (ví dụ: "Jane visite l'Afrique en septembre")</figcaption>
-      </figure>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 1 — SELF-ATTENTION</span><span>04 / 16</span></footer>
-</section>
+    </section>
 
-<!-- ============ SLIDE 5 : MULTI-HEAD ============ -->
-<section class="slide" id="s5">
-  <div class="eyebrow"><span class="dot"></span>Phần 1 · Transformer</div>
-  <h1 class="title" style="max-width:26ch;">Cơ chế Multi-Head Attention</h1>
-  <div class="content-row">
-    <div class="img-col">
-      <figure class="fig">
-        <img src="multi_head.png" alt="Sơ đồ Multi-head Attention">
-        <figcaption>Hình 2 — Multi-head Attention với H = 2 heads song song</figcaption>
-      </figure>
-    </div>
-    <div class="text-col">
-      <div class="formula-box">
-        <span class="lbl">Ghép nối H heads song song</span>
-        MultiHead(Q,K,V) = Concat(head<sub>1</sub>, …, head<sub>H</sub>) · W<sup>C</sup>
+    <section class="slide" data-title="Baseline">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">04 - Baseline Model</p>
+          <h2>PhoBERT token classification</h2>
+        </div>
+        <div class="slide-no">04</div>
+      </header>
+      <div class="content two-col wide-left">
+        <div class="panel">
+          <h3>Thiết kế trong `baseline_model.ipynb`</h3>
+          <ul class="bullets">
+            <li>Backbone: `vinai/phobert-base-v2`.</li>
+            <li>Head: `AutoModelForTokenClassification`, classifier tuyến tính trên hidden state từng token.</li>
+            <li>Loss: Cross Entropy mặc định của Hugging Face, bỏ qua label `-100`.</li>
+            <li>Checkpoint: `load_best_model_at_end=True`, chọn theo `dev_f1`.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Hyperparameters chính</h3>
+          <table>
+            <tbody>
+              <tr><td>Max length</td><td class="num">128</td></tr>
+              <tr><td>Learning rate</td><td class="num">2e-5</td></tr>
+              <tr><td>Batch size</td><td class="num">16 train / 16 eval</td></tr>
+              <tr><td>Epochs</td><td class="num">10</td></tr>
+              <tr><td>Weight decay</td><td class="num">0.01</td></tr>
+              <tr><td>Metric chọn model</td><td class="num">F1 trên Dev</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="formula-box">
-        <span class="lbl">Mỗi head là một Scaled Attention riêng</span>
-        head<sub>h</sub> = ScaledAttention(QW<sup>Q</sup><sub>i</sub>, KW<sup>K</sup><sub>i</sub>, VW<sup>V</sup><sub>i</sub>)
+    </section>
+
+    <section class="slide" data-title="Baseline Results">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">05 - Baseline Results</p>
+          <h2>Baseline có recall ổn nhưng precision còn thấp</h2>
+        </div>
+        <div class="slide-no">05</div>
+      </header>
+      <div class="content two-col">
+        <div class="panel">
+          <h3>Entity-level metrics</h3>
+          <table>
+            <thead>
+              <tr><th>Split</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">F1</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Train</td><td class="num">0.7422</td><td class="num">0.8384</td><td class="num">0.7874</td></tr>
+              <tr><td>Dev</td><td class="num">0.6199</td><td class="num">0.7148</td><td class="num">0.6640</td></tr>
+              <tr><td>Test</td><td class="num">0.6341</td><td class="num">0.7144</td><td class="num">0.6718</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Tổng quan về confusion matrix trên Baseline</h3>
+          <ul class="bullets">
+            <li>Model nhận `ten_benh` khá tốt: test token diagonal khoảng `0.90-0.92`.</li>
+            <li>`nguyen_nhan_benh` yếu hơn: B-token chỉ khoảng `0.34` trên test baseline.</li>
+            <li>Nhiều token entity bị kéo về `O`, đặc biệt các nhãn I của nguyên nhân, điều trị và triệu chứng.</li>
+          </ul>
+        </div>
       </div>
-      <ul class="bullets">
-        <li>Thay vì tính Attention một lần trên toàn bộ D chiều, chia nhỏ thành <b>H "đầu"</b> song song.</li>
-        <li>Mỗi head học một dạng quan hệ ngữ nghĩa/ngữ pháp <b>khác nhau</b> tại các không gian con riêng biệt.</li>
-        <li><b>W<sup>C</sup></b> là ma trận chiếu đầu ra, tổng hợp thông tin từ tất cả các heads.</li>
-      </ul>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 1 — MULTI-HEAD ATTENTION</span><span>05 / 16</span></footer>
-</section>
+    </section>
 
-<!-- ============ SLIDE 6 : POSITIONAL ENCODING ============ -->
-<section class="slide" id="s6">
-  <div class="eyebrow"><span class="dot"></span>Phần 1 · Transformer</div>
-  <h1 class="title" style="max-width:28ch;">Các phương pháp Positional Encoding</h1>
-  <h2 class="subtitle">Self-Attention có tính hoán vị bất biến (permutation-invariant) → cần bổ sung thông tin vị trí của token.</h2>
-  <div class="grid-3">
-    <div class="card">
-      <h3><span class="tag">01</span> Sinusoidal (cố định)</h3>
-      <div class="formula-box" style="font-size:.78rem;">
-        PE<sub>(pos,2i)</sub> = sin(pos / 10000<sup>2i/d</sup>)<br>
-        PE<sub>(pos,2i+1)</sub> = cos(pos / 10000<sup>2i/d</sup>)
+    <section class="slide compact" data-title="Baseline CM">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">06 - Token-level Confusion</p>
+          <h2>Baseline: nhầm mạnh về nhãn `O`</h2>
+        </div>
+        <div class="slide-no">06</div>
+      </header>
+      <div class="content matrix-content">
+        <div class="image-grid">
+          <figure class="figure large">
+            <figcaption>Dev set - baseline</figcaption>
+            <img src="confusion_matrix_dev_baseline.png" alt="Baseline confusion matrix on dev set">
+          </figure>
+          <figure class="figure large">
+            <figcaption>Test set - baseline</figcaption>
+            <img src="confusion_matrix_test_baseline.png" alt="Baseline confusion matrix on test set">
+          </figure>
+        </div>
+        <div class="matrix-notes">
+          <div class="matrix-note"><b>Điểm mạnh:</b> baseline nhận `ten_benh` khá ổn, đặc biệt `B-ten_benh` và `I-ten_benh` giữ đường chéo cao trên test khoảng `0.90-0.92`; nhãn `O` cũng rất ổn định (`0.93-0.94`).</div>
+          <div class="matrix-note"><b>Điểm yếu:</b> các nhãn hiếm và phần giữa entity bị kéo mạnh về `O`: `B-nguyen_nhan_benh` chỉ `0.31-0.34`, còn `I-nguyen_nhan_benh` có tỷ lệ rơi sang `O` khoảng `0.36-0.41`.</div>
+        </div>
       </div>
-      <p>Cộng trực tiếp vào embedding: X′ = X + PE. Nhờ tính cộng góc sin/cos, dễ suy ra quan hệ tương đối &amp; ngoại suy tốt với chuỗi dài hơn.</p>
-    </div>
-    <div class="card accent-violet">
-      <h3><span class="tag" style="color:#4a42d6;">02</span> Learned Embeddings</h3>
-      <div class="formula-box" style="font-size:.78rem;">X′ = X + E<sub>pos</sub>, &nbsp; pos ∈ {0,…,N<sub>max</sub>−1}</div>
-      <p>Học vector vị trí tuyệt đối như tham số tự do (BERT/GPT ban đầu). Linh hoạt, tự tối ưu theo dữ liệu nhưng <b>không ngoại suy</b> được khi chuỗi vượt N<sub>max</sub>.</p>
-    </div>
-    <div class="card accent-coral">
-      <h3><span class="tag" style="color:#d94b34;">03</span> Relative — RoPE</h3>
-      <div class="formula-box" style="font-size:.78rem;">
-        f(x,pos) = x · e<sup>i·pos·θ</sup><br>
-        ⟨f(Q<sub>i</sub>,i), f(K<sub>j</sub>,j)⟩ = g(Q<sub>i</sub>,K<sub>j</sub>, i−j)
+    </section>
+
+    <section class="slide" data-title="Improvement">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">07 - Improvement</p>
+          <h2>Cải tiến nhắm vào cấu trúc chuỗi và nhãn hiếm</h2>
+        </div>
+        <div class="slide-no">07</div>
+      </header>
+      <div class="content two-col">
+        <div class="panel">
+          <h3>PhoBERT + BiLSTM + CRF</h3>
+          <ul class="bullets">
+            <li>PhoBERT tạo contextual embedding cho toàn câu.</li>
+            <li>BiLSTM 1 tầng, hidden dim `256`, học thêm ngữ cảnh trái - phải.</li>
+            <li>Dropout `0.5` trước lớp linear để giảm overfit.</li>
+            <li>CRF dùng Viterbi decode để ép chuỗi nhãn hợp lệ hơn, hữu ích với BIO.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Data augmentation</h3>
+          <ul class="bullets">
+            <li>Trích entity bank từ train: `ten_benh` 1438, `trieu_chung_benh` 1127, `bien_phap_dieu_tri` 1022, `nguyen_nhan_benh` 623.</li>
+            <li>Entity replacement cùng loại với xác suất `0.6`, sinh thêm `3621` câu.</li>
+            <li>Tăng riêng `nguyen_nhan_benh` bằng candidate pool `642` mẫu, thêm `1563` câu.</li>
+            <li>Tổng train sau cùng trong notebook: `9757` câu, số lượt B-nguyen_nhan_benh tăng lên `4145`.</li>
+          </ul>
+        </div>
       </div>
-      <p>Mã hoá khoảng cách tương đối qua phép xoay vector trong không gian số phức. Tổng quát hoá tốt với chuỗi dài — dùng trong LLaMA, GPT-NeoX.</p>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 1 — POSITIONAL ENCODING</span><span>06 / 16</span></footer>
-</section>
+    </section>
 
-<!-- ============ SLIDE 7 : TRANSFORMER BLOCK ============ -->
-<section class="slide" id="s7">
-  <div class="eyebrow"><span class="dot"></span>Phần 1 · Transformer</div>
-  <h1 class="title" style="max-width:26ch;">Tổng quan một Transformer Block</h1>
-  <div class="grid-2">
-    <div class="card">
-      <h3><span class="tag">SUB-LAYER 1</span> Multi-Head Self-Attention</h3>
-      <p>Bao bọc bởi kết nối tắt (Residual Connection) và chuẩn hoá tầng (Layer Normalization):</p>
-      <div class="formula-box">X′ = LayerNorm( X + MHA(X) )</div>
-    </div>
-    <div class="card accent-violet">
-      <h3><span class="tag" style="color:#4a42d6;">SUB-LAYER 2</span> Position-wise Feed-Forward</h3>
-      <p>Hai tầng tuyến tính kết hợp hàm kích hoạt phi tuyến (ReLU/GELU), áp dụng độc lập cho từng vị trí token:</p>
-      <div class="formula-box" style="font-size:.86rem;">FFN(x) = max(0, xW<sub>1</sub>+b<sub>1</sub>)W<sub>2</sub>+b<sub>2</sub></div>
-      <div class="formula-box">X″ = LayerNorm( X′ + FFN(X′) )</div>
-    </div>
-  </div>
-  <ul class="bullets" style="margin-top:26px;">
-    <li>Residual connection giúp gradient lan truyền ổn định qua nhiều lớp chồng lên nhau (N×).</li>
-    <li>Layer Normalization chuẩn hoá phân phối kích hoạt, tăng tốc và ổn định hội tụ khi huấn luyện.</li>
-  </ul>
-  <footer class="small"><span>PHẦN 1 — TRANSFORMER BLOCK</span><span>07 / 16</span></footer>
-</section>
+    <section class="slide compact" data-title="Improved Code">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">08 - Code Walkthrough</p>
+          <h2>Code cải tiến: BiLSTM + CRF</h2>
+        </div>
+        <div class="slide-no">08</div>
+      </header>
+      <div class="content two-col">
+        <div class="panel">
+          <h3>Forward pass</h3>
+          <pre class="code">sequence_output = phobert(input_ids, attention_mask)
+lstm_out, _ = bilstm(sequence_output)
+emissions = hidden2tag(dropout(lstm_out))
 
-<!-- ============ SLIDE 8 : FULL ARCHITECTURE ============ -->
-<section class="slide" id="s8">
-  <div class="eyebrow"><span class="dot"></span>Phần 1 · Transformer</div>
-  <h1 class="title" style="max-width:28ch;">Kiến trúc hoàn chỉnh &amp; các họ mô hình</h1>
-  <div class="content-row">
-    <div class="img-col" style="flex-basis:340px;">
-      <figure class="fig">
-        <img src="transfomer_architect.png" alt="Kiến trúc Transformer hoàn chỉnh">
-        <figcaption>Kiến trúc Transformer gốc (Vaswani et al., 2017)</figcaption>
-      </figure>
-    </div>
-    <div class="text-col" style="flex:1 1 420px;">
-      <div class="card" style="margin-bottom:14px;">
-        <h3><span class="tag">01</span> Encoder–Decoder <span style="color:var(--ink-soft); font-weight:400;">(T5, BART)</span></h3>
-        <p>Phù hợp seq2seq (dịch máy, tóm tắt). Encoder dùng bidirectional attention; Decoder dùng causal masking + cross-attention với đầu ra Encoder.</p>
+if tags is not None:
+    loss = -crf(emissions, tags, mask)
+else:
+    prediction = crf.decode(emissions, mask)</pre>
+        </div>
+        <div class="panel">
+          <h3>Training strategy</h3>
+          <div class="timeline">
+            <div class="timeline-item"><b>Phase 1</b><p>Đóng băng PhoBERT trong `2` epoch, train LSTM + Linear + CRF với learning rate `1e-3`.</p></div>
+            <div class="timeline-item"><b>Phase 2</b><p>Mở khóa toàn bộ model trong `8` epoch, PhoBERT learning rate `2e-5`, các layer mới `1e-3`.</p></div>
+            <div class="timeline-item"><b>Schedule</b><p>Linear warmup `10%` tổng step, gradient clipping `max_norm=1.0`.</p></div>
+            <div class="timeline-item"><b>Checkpoint</b><p>Lưu `phobert_bilstm_crf_best_f1_aug.pth` khi Dev F1 tăng.</p></div>
+          </div>
+        </div>
       </div>
-      <div class="card accent-violet" style="margin-bottom:14px;">
-        <h3><span class="tag" style="color:#4a42d6;">02</span> Encoder-only <span style="color:var(--ink-soft); font-weight:400;">(BERT, RoBERTa)</span></h3>
-        <p>Bidirectional attention toàn phần — tối ưu cho hiểu ngôn ngữ, phân loại, gán nhãn chuỗi (NER/POS).</p>
+    </section>
+
+    <section class="slide" data-title="Results">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">09 - Results</p>
+          <h2>Improved model tăng F1 rõ rệt</h2>
+        </div>
+        <div class="slide-no">09</div>
+      </header>
+      <div class="content">
+        <div class="result-banner">
+          <strong>+5.36</strong>
+          <p><b>điểm F1 trên Test</b><span>Baseline `0.6718` -> Improved `0.7255`</span></p>
+        </div>
+        <div class="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Split</th>
+                <th class="num">Precision</th>
+                <th class="num">Recall</th>
+                <th class="num">F1</th>
+                <th class="num">Delta F1</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Baseline</td><td>Dev</td><td class="num">0.6199</td><td class="num">0.7148</td><td class="num">0.6640</td><td class="num">-</td></tr>
+              <tr><td>Improved</td><td>Dev</td><td class="num">0.7031</td><td class="num">0.7323</td><td class="num">0.7174</td><td class="num delta">+0.0534</td></tr>
+              <tr><td>Baseline</td><td>Test</td><td class="num">0.6341</td><td class="num">0.7144</td><td class="num">0.6718</td><td class="num">-</td></tr>
+              <tr><td>Improved</td><td>Test</td><td class="num">0.7169</td><td class="num">0.7344</td><td class="num">0.7255</td><td class="num delta">+0.0536</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="card accent-coral">
-        <h3><span class="tag" style="color:#d94b34;">03</span> Decoder-only <span style="color:var(--ink-soft); font-weight:400;">(GPT-3, LLaMA)</span></h3>
-        <p>Chỉ dùng causal self-attention (mặt nạ tam giác dưới) — tối ưu cho sinh văn bản tự hồi quy.</p>
+    </section>
+
+    <section class="slide" data-title="Per Entity">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">10 - Per Entity</p>
+          <h2>Improved model tốt nhất ở tên bệnh và điều trị</h2>
+        </div>
+        <div class="slide-no">10</div>
+      </header>
+      <div class="content two-col">
+        <div class="panel">
+          <h3>Dev entity-level</h3>
+          <table>
+            <thead><tr><th>Entity</th><th class="num">P</th><th class="num">R</th><th class="num">F1</th></tr></thead>
+            <tbody>
+              <tr><td>bien_phap_chan_doan</td><td class="num">0.6145</td><td class="num">0.6940</td><td class="num">0.6519</td></tr>
+              <tr><td>bien_phap_dieu_tri</td><td class="num">0.6715</td><td class="num">0.7170</td><td class="num">0.6935</td></tr>
+              <tr><td>nguyen_nhan_benh</td><td class="num">0.4403</td><td class="num">0.3909</td><td class="num warn">0.4141</td></tr>
+              <tr><td>ten_benh</td><td class="num">0.7987</td><td class="num">0.8421</td><td class="num">0.8198</td></tr>
+              <tr><td>trieu_chung_benh</td><td class="num">0.6444</td><td class="num">0.6452</td><td class="num">0.6448</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Test entity-level</h3>
+          <table>
+            <thead><tr><th>Entity</th><th class="num">P</th><th class="num">R</th><th class="num">F1</th></tr></thead>
+            <tbody>
+              <tr><td>bien_phap_chan_doan</td><td class="num">0.6522</td><td class="num">0.6892</td><td class="num">0.6702</td></tr>
+              <tr><td>bien_phap_dieu_tri</td><td class="num">0.7594</td><td class="num">0.7118</td><td class="num">0.7348</td></tr>
+              <tr><td>nguyen_nhan_benh</td><td class="num">0.3808</td><td class="num">0.3750</td><td class="num warn">0.3779</td></tr>
+              <tr><td>ten_benh</td><td class="num">0.7934</td><td class="num">0.8371</td><td class="num">0.8147</td></tr>
+              <tr><td>trieu_chung_benh</td><td class="num">0.6352</td><td class="num">0.6801</td><td class="num">0.6569</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 1 — KIẾN TRÚC TỔNG THỂ</span><span>08 / 16</span></footer>
-</section>
+    </section>
 
-<!-- ============ SLIDE 9 : NLNDE PROBLEM & MOTIVATION ============ -->
-<section class="slide" id="s9">
-  <div class="eyebrow"><span class="dot"></span>Phần 2 · NLNDE</div>
-  <h1 class="title" style="max-width:28ch;">Bài toán &amp; động lực nghiên cứu</h1>
-  <div class="pill-row">
-    <span class="pill">BioNLP-OST 2019 · ACL · tr.26–32</span>
-    <span class="pill">Lange, Adel, Strötgen — Bosch Center for AI</span>
-    <span class="pill">aclanthology.org/D19-5705</span>
-  </div>
-  <div class="grid-2">
-    <div class="card">
-      <h3><span class="tag">BÀI TOÁN</span> PharmaCoNER 2019 — Subtrack 1</h3>
-      <ul>
-        <li>Nhận dạng &amp; phân loại thực thể tên riêng dược lý / hoá sinh trong bệnh án lâm sàng <b>tiếng Tây Ban Nha</b></li>
-        <li>Mô hình hoá dạng gán nhãn chuỗi (sequence labeling), định dạng <b>BIO</b></li>
-        <li>4 loại thực thể: <b>PROTEINAS</b>, <b>NORMALIZABLES</b>, <b>NO-NORMALIZABLES</b>, <b>UNCLEAR</b></li>
-      </ul>
-    </div>
-    <div class="card accent-violet">
-      <h3><span class="tag" style="color:#4a42d6;">ĐỘNG LỰC</span> "Neither on Language Nor on Domain Expertise"</h3>
-      <ul>
-        <li>Thuật ngữ y sinh cấu trúc phức tạp, tên dài, nhiều viết tắt / công thức hoá học (<i>amoxilina-clavulánico, CAM5.2</i>)</li>
-        <li>Mô hình NER y sinh truyền thống phụ thuộc nặng vào luật thủ công, từ điển, chuyên gia ngôn ngữ</li>
-        <li><b>Mục tiêu NLNDE:</b> hiệu quả cao mà không cần kỹ sư đặc trưng chuyên sâu hay kiến thức chuyên gia miền y sinh</li>
-      </ul>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 2 — BÀI TOÁN & ĐỘNG LỰC</span><span>09 / 16</span></footer>
-</section>
-
-<!-- ============ SLIDE 10 : CONTRIBUTIONS & METHOD ============ -->
-<section class="slide" id="s10">
-  <div class="eyebrow"><span class="dot"></span>Phần 2 · NLNDE</div>
-  <h1 class="title" style="max-width:30ch;">Đóng góp chính &amp; phương pháp đề xuất</h1>
-  <div class="content-row">
-    <div class="text-col" style="flex:1 1 480px;">
-      <div class="card" style="margin-bottom:12px;">
-        <h3><span class="tag">01</span> Đa nguồn biểu diễn (Multi-source Embeddings)</h3>
-        <p>Char-level BiLSTM (50d) + fastText chung tiếng Tây Ban Nha (100d) + fastText miền SciELO (100d) + BPEmb subword (300d, vocab 200k) — không cần fine-tune embedding gốc.</p>
+    <section class="slide compact" data-title="Improved CM">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">11 - Token-level Confusion</p>
+          <h2>Improved: cải thiện nhãn B, nhưng I-label vẫn khó</h2>
+        </div>
+        <div class="slide-no">11</div>
+      </header>
+      <div class="content matrix-content">
+        <div class="image-grid">
+          <figure class="figure large">
+            <figcaption>Dev set - improved</figcaption>
+            <img src="confusion_matrix_dev.png" alt="Improved confusion matrix on dev set">
+          </figure>
+          <figure class="figure large">
+            <figcaption>Test set - improved</figcaption>
+            <img src="confusion_matrix_test.png" alt="Improved confusion matrix on test set">
+          </figure>
+        </div>
+        <div class="matrix-notes">
+          <div class="matrix-note"><b>Cải thiện rõ:</b> `B-nguyen_nhan_benh` tăng từ baseline `0.31/0.34` lên `0.46/0.43` trên Dev/Test, cho thấy augmentation riêng cho nguyên nhân bệnh giúp model bắt đầu entity tốt hơn.</div>
+          <div class="matrix-note"><b>Vẫn còn nghẽn:</b> nhiều `I-*` vẫn rơi về `O`, như `I-bien_phap_dieu_tri` sang `O` `0.40-0.43` và `I-nguyen_nhan_benh` sang `O` `0.41-0.44`; lỗi chính nằm ở việc giữ trọn span dài.</div>
+        </div>
       </div>
-      <div class="card accent-violet" style="margin-bottom:12px;">
-        <h3><span class="tag" style="color:#4a42d6;">02</span> Attention-based Embedding Selection</h3>
-        <div class="formula-box" style="font-size:.78rem;">a<sub>i</sub> = exp(V·tanh(Wx<sub>i</sub>+Uf)) / Σ<sub>l</sub> exp(V·tanh(Wx<sub>l</sub>+Uf))</div>
-        <p>Tự động cân nhắc trọng số cho từng nguồn embedding dựa trên đặc trưng từ f (POS, độ dài, tần suất, hình thái từ).</p>
+    </section>
+
+    <section class="slide compact" data-title="Error Overview">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">12 - Error Analysis</p>
+          <h2>Lỗi còn lại phản ánh cả model, dữ liệu và quy ước nhãn</h2>
+        </div>
+        <div class="slide-no">12</div>
+      </header>
+      <div class="content">
+        <div class="metric-cards">
+          <div class="metric-card"><span>False Positive</span><strong>726</strong></div>
+          <div class="metric-card"><span>False Negative</span><strong>574</strong></div>
+          <div class="metric-card"><span>Boundary Error</span><strong>425</strong></div>
+          <div class="metric-card"><span>Semantic Overlap</span><strong>169</strong></div>
+        </div>
+        <div class="three-col">
+          <div class="panel">
+            <span class="mini-kicker">Khó khăn thứ nhất</span>
+            <h3>Dữ liệu nhiễu và không nhất quán</h3>
+            <ul class="bullets dense-bullets">
+              <li>Ranh giới entity bị co giãn: lúc chỉ lấy tên gốc, lúc lấy cả cụm dài.</li>
+              <li>Một số nhãn vàng chứa thành phần gây nhiễu như chủ ngữ hoặc từ dẫn.</li>
+              <li>Model có thể bắt cụm y khoa hợp lý nhưng vẫn bị tính sai vì lệch guideline.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <span class="mini-kicker">Khó khăn thứ hai</span>
+            <h3>Chồng lấn kiến thức y khoa</h3>
+            <ul class="bullets dense-bullets">
+              <li>Một cụm có thể vừa là bệnh, vừa là biến cố hoặc triệu chứng theo ngữ cảnh.</li>
+              <li>Biện pháp như ERCP có thể dùng để chẩn đoán hoặc điều trị.</li>
+              <li>Headline và câu liệt kê làm mất tín hiệu cú pháp để phân vai.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <span class="mini-kicker">Khó khăn thứ ba</span>
+            <h3>Long-tail và mất cân bằng nhãn</h3>
+            <ul class="bullets dense-bullets">
+              <li>`O` chiếm khoảng 76.15% token train, tạo thiên hướng dự đoán về lớp đa số.</li>
+              <li>`nguyen_nhan_benh` ít ổn định nhất, test F1 chỉ đạt `0.3779`.</li>
+              <li>Entity ngắn như `virus`, `béo phì`, `thấp tim` dễ bị nuốt thành `O`.</li>
+            </ul>
+          </div>
+        </div>
       </div>
-      <div class="card accent-coral">
-        <h3><span class="tag" style="color:#d94b34;">03</span> Noisy Channel Modeling</h3>
-        <p>Distant supervision từ SciELO &amp; Wikidata; ma trận nhầm lẫn (confusion matrix) khởi tạo Noisy Channel; huấn luyện xen kẽ dữ liệu sạch/nhiễu, giảm dần 5% câu nhiễu mỗi epoch.</p>
+    </section>
+
+    <section class="slide compact" data-title="Boundary">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">13 - Boundary Error</p>
+          <h2>425 lỗi ranh giới chủ yếu đến từ cụm y khoa mở rộng</h2>
+        </div>
+        <div class="slide-no">13</div>
+      </header>
+      <div class="content two-col wide-left">
+        <div class="panel">
+          <h3>Mẫu lỗi tiêu biểu</h3>
+          <table class="compact-table">
+            <thead>
+              <tr><th>Ngữ cảnh</th><th>True</th><th>Pred</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>`viêm màng não do virus`</td>
+                <td>`[viêm màng não]`</td>
+                <td>`[viêm màng não do virus]`</td>
+              </tr>
+              <tr>
+                <td>`bệnh thiếu máu thiếu sắt`</td>
+                <td>`[bệnh thiếu máu]`</td>
+                <td>`[bệnh thiếu máu thiếu sắt]`</td>
+              </tr>
+              <tr>
+                <td>`bác sĩ để kiểm tra ... đôi mắt`</td>
+                <td>`[bác sĩ để kiểm tra ...]`</td>
+                <td>`[để kiểm tra ...]`</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Nguyên nhân gốc rễ</h3>
+          <ul class="bullets dense-bullets">
+            <li>`viêm màng não do virus` và `bệnh thiếu máu thiếu sắt` đều là cụm bệnh đầy đủ trong y văn, nhưng nhãn vàng chỉ lấy phần tên bệnh gốc.</li>
+            <li>PhoBERT học quan hệ ngữ nghĩa liền mạch trong cụm danh từ, nên có xu hướng mở rộng span đến hết bổ ngữ nguyên nhân hoặc phân loại.</li>
+            <li>Ở mẫu chẩn đoán mắt, nhãn vàng đưa cả `bác sĩ` vào entity; dự đoán của model loại bỏ chủ thể và giữ cụm hành động chẩn đoán.</li>
+            <li>Luận điểm khi trình bày: không phải mọi boundary error đều là hiểu sai y khoa, nhiều lỗi là lệch giữa hiểu ngữ nghĩa và quy ước gán nhãn.</li>
+          </ul>
+        </div>
       </div>
-    </div>
-    <div class="img-col" style="flex:1 1 380px;">
-      <figure class="fig">
-        <img src="paper_architecture.png" alt="Kiến trúc mô hình NLNDE">
-        <figcaption>Hình 2 (bài báo) — Kiến trúc tổng thể mô hình NLNDE</figcaption>
-      </figure>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 2 — ĐÓNG GÓP & PHƯƠNG PHÁP</span><span>10 / 16</span></footer>
-</section>
+    </section>
 
-<!-- ============ SLIDE 11 : RESULTS ============ -->
-<section class="slide" id="s11">
-  <div class="eyebrow"><span class="dot"></span>Phần 2 · NLNDE</div>
-  <h1 class="title" style="max-width:28ch;">Kết quả thực nghiệm — PharmaCoNER Task 1</h1>
-  <table class="results">
-    <thead>
-      <tr><th>Mô hình (Run ID)</th><th>Dev — Precision</th><th>Dev — Recall</th><th>Dev — F1</th><th>Test — Precision</th><th>Test — Recall</th><th>Test — F1</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>S1: Base (General Embeddings)</td><td>86.3</td><td>85.0</td><td>85.6</td><td>85.5</td><td>85.3</td><td>85.4</td></tr>
-      <tr><td>S2: + Domain fastText</td><td>87.1</td><td>85.8</td><td>86.4</td><td>86.3</td><td>85.9</td><td>86.1</td></tr>
-      <tr><td>S3: + Noisy Data (không Attention)</td><td>87.5</td><td>87.5</td><td>87.5</td><td>85.1</td><td>86.0</td><td>85.6</td></tr>
-      <tr><td>S4: + Attention (không Noisy Data)</td><td>88.0</td><td>88.0</td><td>88.0</td><td>85.2</td><td>87.2</td><td>86.2</td></tr>
-      <tr class="hl"><td>S5: Attention + Noisy Data (Full)</td><td>89.1</td><td>87.5</td><td>88.3</td><td>89.0</td><td>88.3</td><td>88.6</td></tr>
-    </tbody>
-  </table>
-  <ul class="bullets" style="margin-top:24px;">
-    <li>Hệ thống đầy đủ <b>S5 (Attention + Noise)</b> đạt F1 cao nhất <b>88.6%</b> trên tập Test, cải thiện <b>+3.2%</b> so với mô hình cơ sở S1.</li>
-    <li>Phân tích trọng số attention cho thấy mô hình tự gán trọng số cao cho <b>BPEmb</b> ở từ thông thường/stop-words, trong khi <b>fastText miền (SciELO)</b> tăng mạnh ở thuật ngữ sinh học chuyên ngành.</li>
-  </ul>
-  <footer class="small"><span>PHẦN 2 — KẾT QUẢ THỰC NGHIỆM</span><span>11 / 16</span></footer>
-</section>
+    <section class="slide compact" data-title="Semantic">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">14 - Semantic Overlap</p>
+          <h2>169 lỗi nhầm loại xuất hiện ở các entity có nhiều vai trò</h2>
+        </div>
+        <div class="slide-no">14</div>
+      </header>
+      <div class="content">
+        <div class="split-notes">
+          <div class="note-box">
+            <h3>`thai chết lưu`: Triệu chứng ↔ Bệnh</h3>
+            <p>Trong dữ liệu, cụm này được gán `trieu_chung_benh`, nhưng về mặt lâm sàng cũng có thể được xem như một chẩn đoán hoặc biến cố sản khoa độc lập. Các dòng crawl kiểu `xem thêm`, `chủ đề`, danh sách từ khóa bị ghép chung làm model thiếu cấu trúc vị ngữ, nên dễ dự đoán `ten_benh`.</p>
+          </div>
+          <div class="note-box">
+            <h3>`nội soi ngược dòng`: Chẩn đoán ↔ Điều trị</h3>
+            <p>ERCP có vai trò kép: vừa khảo sát đường mật, vừa can thiệp lấy sỏi hoặc xử lý tắc mật. Khi câu có cụm `các xét nghiệm này có thể bao gồm ...`, ngữ cảnh nghiêng mạnh về `bien_phap_chan_doan`, dù nhãn vàng là `bien_phap_dieu_tri`.</p>
+          </div>
+        </div>
+        <div class="panel flat">
+          <h3>Insight chính</h3>
+          <ul class="bullets dense-bullets">
+            <li>Nhóm lỗi này không phải do sai cú pháp BIO. Model vẫn có thể tạo span đúng dạng `B-... -> I-...`, nhưng chọn nhầm loại entity.</li>
+            <li>Ví dụ `thai chết lưu` có thể được gắn thành một cụm hợp lệ, nhưng câu hỏi khó là nên gọi nó là `trieu_chung_benh` hay `ten_benh` trong ngữ cảnh đó.</li>
+            <li>Vì vậy cần quy tắc annotation rõ hơn cho các cụm đa vai trò: ưu tiên chức năng trong câu hay bản chất y khoa của thuật ngữ.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
-<!-- ============ SLIDE 12 : STRENGTHS ============ -->
-<section class="slide" id="s12">
-  <div class="eyebrow"><span class="dot"></span>Phần 2 · NLNDE</div>
-  <h1 class="title" style="max-width:26ch;">Điểm mạnh của phương pháp</h1>
-  <div class="grid-3">
-    <div class="card">
-      <h3><span class="tag">A</span> Expertise-free</h3>
-      <p>Không cần luật thủ công hay kiến thức ngôn ngữ học chuyên sâu tiếng Tây Ban Nha — dễ tái thiết lập cho ngôn ngữ hoặc lĩnh vực y khoa khác.</p>
-    </div>
-    <div class="card accent-violet">
-      <h3><span class="tag" style="color:#4a42d6;">B</span> Chọn lọc Embedding hiệu quả</h3>
-      <p>Attention dựa trên Word Features giải quyết bài toán dư thừa khi ghép nhiều embedding — giảm chiều đầu vào cho BiLSTM mà vẫn giữ thông tin hữu ích nhất.</p>
-    </div>
-    <div class="card accent-coral">
-      <h3><span class="tag" style="color:#d94b34;">C</span> Chống nhiễu xuất sắc</h3>
-      <p>Lớp Noisy Channel kết hợp lịch giảm dần dữ liệu nhiễu (5%/epoch) giúp tận dụng tối đa distant supervision mà không làm giảm hiệu suất.</p>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 2 — ĐIỂM MẠNH</span><span>12 / 16</span></footer>
-</section>
+    <section class="slide compact" data-title="FN FP">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">15 - False Negative / False Positive</p>
+          <h2>FN bị kéo về O, FP bị kích hoạt bởi cụm giống thực thể</h2>
+        </div>
+        <div class="slide-no">15</div>
+      </header>
+      <div class="content two-col">
+        <div class="panel">
+          <span class="mini-kicker">574 lỗi</span>
+          <h3>False Negative: bỏ sót entity thành `O`</h3>
+          <div class="stack">
+            <div class="quote"><b>Mẫu:</b> bỏ sót `virus` (`nguyen_nhan_benh`), `béo phì` (`trieu_chung_benh`), `thấp tim` (`ten_benh`).</div>
+            <ul class="bullets dense-bullets">
+              <li>`O` là lớp áp đảo nên khi model phân vân, dự đoán về `O` thường ít rủi ro loss hơn.</li>
+              <li>Các entity ngắn và nhãn hiếm không tạo đủ tín hiệu chuỗi để CRF giữ lại.</li>
+              <li>Văn bản crawl dạng tiêu đề, thiếu dấu câu và thiếu quan hệ chủ-vị làm BiLSTM khó đọc ngữ cảnh tuần tự.</li>
+              <li>Cấu trúc rút gọn như `trong thấp tim còn có ...` khiến entity bị nhìn như thành phần ngữ pháp phụ.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="panel">
+          <span class="mini-kicker">726 lỗi</span>
+          <h3>False Positive: dự đoán thừa entity</h3>
+          <div class="stack">
+            <div class="quote"><b>Mẫu:</b> `thai chết lưu` → `ten_benh`, `chảy máu đường ruột` → `trieu_chung_benh`, `tăng tiết nội tiết tố` → `ten_benh`.</div>
+            <ul class="bullets dense-bullets">
+              <li>Nhiều cụm có hình thái rất giống thuật ngữ y khoa, nhưng annotation của câu đó không đánh dấu.</li>
+              <li>Augmentation giúp tăng recall, nhưng có thể làm model nhạy hơn với mẫu lexical quen thuộc.</li>
+              <li>FP cao cho thấy bài toán cần cân bằng giữa nhận diện đủ entity và không mở rộng ra các cụm mô tả thông thường.</li>
+              <li>Một phần FP/FN nên được audit thủ công vì có thể là bất đồng với nhãn vàng, không thuần là lỗi model.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<!-- ============ SLIDE 13 : LIMITATIONS ============ -->
-<section class="slide" id="s13">
-  <div class="eyebrow"><span class="dot"></span>Phần 2 · NLNDE</div>
-  <h1 class="title" style="max-width:26ch;">Hạn chế của phương pháp</h1>
-  <ul class="bullets" style="max-width:80ch; margin-top:30px;">
-    <li><b>Phụ thuộc chất lượng từ điển (Gazetteers):</b> hiệu quả của Noisy Channel phụ thuộc vào việc Wikidata có bao phủ tốt các danh mục thực thể y sinh của tập dữ liệu đích hay không.</li>
-    <li><b>Quá khớp trên tập Dev (Overfitting):</b> khi dùng riêng lẻ S3 (Noise) hoặc S4 (Attention), F1 trên Dev tăng mạnh (87.5% / 88.0%) nhưng trên Test chỉ tăng rất nhẹ (85.6% / 86.2%) — cho thấy dễ overfit nếu không kết hợp đồng thời cả hai cơ chế.</li>
-    <li><b>Lỗi Tokenizer gốc:</b> tokenizer của bộ dữ liệu SPACCC đôi khi gộp từ ghép bằng dấu gạch dưới ("_"), đòi hỏi bước hậu xử lý để không lệch căn chỉnh nhãn BIO.</li>
-  </ul>
-  <footer class="small"><span>PHẦN 2 — HẠN CHẾ</span><span>13 / 16</span></footer>
-</section>
+    <section class="slide compact" data-title="Recommendations">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">16 - Đề xuất</p>
+          <h2>Ưu tiên cải thiện từ dữ liệu, mất cân bằng và kiểm soát suy luận</h2>
+        </div>
+        <div class="slide-no">16</div>
+      </header>
+      <div class="content">
+        <div class="split-notes">
+          <div class="note-box">
+            <h3>1. Chuẩn hóa annotation</h3>
+            <p>Viết guideline rõ cho bổ ngữ nguyên nhân, mức độ, vị trí cơ quan và cụm chỉ tác nhân. Với các mẫu xung đột như `viêm màng não do virus`, cần quyết định nhất quán: lấy tên bệnh gốc hay lấy toàn bộ thuật ngữ cụ thể.</p>
+          </div>
+          <div class="note-box">
+            <h3>2. Làm sạch dữ liệu nhiễu</h3>
+            <p>Một số dòng dữ liệu web bị ghép lẫn tiêu đề, mục `xem thêm`, mục `chủ đề` và danh sách từ khóa. Cần tách các phần này thành câu riêng để model có ngữ cảnh rõ hơn, rồi tạo một tập kiểm tra nhỏ từ các lỗi boundary/semantic hay gặp.</p>
+          </div>
+          <div class="note-box">
+            <h3>3. Xử lý long-tail</h3>
+            <p>Thêm cơ chế phạt mạnh hơn khi model bỏ sót nhãn hiếm và dự đoán thành `O`, kết hợp oversampling có kiểm soát cho `nguyen_nhan_benh` và batch sampling cân bằng để entity hiếm xuất hiện đều hơn khi train.</p>
+          </div>
+          <div class="note-box">
+            <h3>4. Kiểm soát inference và thí nghiệm</h3>
+            <p>Thêm post-processing ranh giới BIO, threshold theo từng nhãn, ablation riêng cho augmentation/BiLSTM/CRF, và chỉ báo cáo một checkpoint tốt nhất theo dev F1 để tránh lệch số giữa các lần load.</p>
+          </div>
+        </div>
+        
+      </div>
+    </section>
 
-<!-- ============ SLIDE 14 : SUCCESS / FAILURE ============ -->
-<section class="slide" id="s14">
-  <div class="eyebrow"><span class="dot"></span>Phần 2 · NLNDE</div>
-  <h1 class="title" style="max-width:30ch;">Trường hợp hoạt động tốt &amp; trường hợp thất bại</h1>
-  <div class="grid-2">
-    <div class="card">
-      <h3><span class="tag">✓</span> Hoạt động tốt (Success Cases)</h3>
-      <ul>
-        <li>Thực thể hoá học/protein có tiền tố/hậu tố cấu trúc rõ ràng — nhờ <b>BPEmb subwords</b> nắm bắt tốt.</li>
-        <li>Từ vựng ngoài từ điển (OOV) nhưng xuất hiện trong văn bản y khoa SciELO không giám sát — nhờ <b>domain fastText</b> và dữ liệu distant supervision.</li>
-      </ul>
-    </div>
-    <div class="card accent-coral">
-      <h3><span class="tag" style="color:#d94b34;">✕</span> Có thể thất bại (Failure Cases)</h3>
-      <ul>
-        <li>Thực thể mơ hồ ngữ cảnh: nhãn <b>UNCLEAR</b>/<b>NO-NORMALIZABLES</b> — gazetteer string-matching dễ tạo nhãn sai vượt khả năng tự sửa của Noisy Channel.</li>
-        <li>Thực thể đa từ phức tạp: chứa nhiều dấu câu, số, ký tự đặc biệt → dễ phân mảnh/gộp sai token, đứt gãy chuỗi nhãn B-/I-.</li>
-      </ul>
-    </div>
-  </div>
-  <footer class="small"><span>PHẦN 2 — THÀNH CÔNG & THẤT BẠI</span><span>14 / 16</span></footer>
-</section>
+    <section class="slide" data-title="Conclusion">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">17 - Kết luận</p>
+          <h2>Improved model hiệu quả hơn, nhưng giới hạn lớn nhất nằm ở dữ liệu</h2>
+        </div>
+        <div class="slide-no">17</div>
+      </header>
+      <div class="content two-col wide-left">
+        <div class="panel">
+          <h3>Kết luận định lượng</h3>
+          <ul class="bullets">
+            <li>Trên Test, F1 tăng từ `0.6718` lên `0.7255`, tương đương `+5.36` điểm.</li>
+            <li>Precision tăng mạnh từ `0.6341` lên `0.7169`, cho thấy model improved bớt dự đoán nhiễu hơn baseline.</li>
+            <li>Recall tăng từ `0.7144` lên `0.7344`, nhờ augmentation và CRF giữ chuỗi nhãn ổn định hơn.</li>
+            <li>`ten_benh` là nhóm tốt nhất (`F1 = 0.8147`), còn `nguyen_nhan_benh` là bottleneck chính (`F1 = 0.3779`).</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Thông điệp chốt</h3>
+          <ul class="bullets">
+            <li>PhoBERT + BiLSTM + CRF phù hợp hơn baseline PhoBERT thuần cho NER y tế tiếng Việt.</li>
+            <li>Lỗi còn lại không chỉ đến từ mô hình, mà còn từ guideline annotation, văn bản crawl nhiễu và nhập nhằng chuyên ngành.</li>
+            <li>Hướng cải thiện có giá trị nhất là chuẩn hóa nhãn, xử lý long-tail và kiểm chứng từng thành phần bằng ablation.</li>
+            <li>Câu kết khi trình bày: đây là bài toán vừa cần mô hình sequence labeling mạnh, vừa cần hiểu rõ quy ước nhãn y khoa.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
 
-<!-- ============ SLIDE 15 : REFERENCES ============ -->
-<section class="slide" id="s15">
-  <div class="eyebrow"><span class="dot"></span>Tài liệu tham khảo</div>
-  <h1 class="title" style="max-width:22ch;">Reference</h1>
-  <ul class="bullets" style="margin-top:30px; max-width:78ch;">
-    <li>[1] S. J. D. Prince, <i>Understanding Deep Learning</i>, Cambridge University Press, 2023. — udlbook.com</li>
-    <li>[2] L. Lange, H. Adel, J. Strötgen, "NLNDE: Enhancing neural sequence taggers with attention and noisy channel for robust pharmacological entity detection," <i>Proc. 5th Workshop on BioNLP Open Shared Tasks (BioNLP-OST)</i>, ACL, Hong Kong, 2019, pp. 26–32.</li>
-    <li>[3] A. Gonzalez-Agirre et al., "PharmaCoNER: Pharmacological substances, compounds and proteins named entity recognition track," <i>BioNLP-OST</i>, 2019.</li>
-    <li>[4] A. Vaswani et al., "Attention is all you need," <i>NeurIPS</i>, vol. 30, 2017.</li>
-    <li>[5] G. Lample, M. Ballesteros, S. Subramanian, K. Kawakami, C. Dyer, "Neural architectures for named entity recognition," <i>NAACL-HLT</i>, 2016, pp. 260–270.</li>
-    <li>[6] F. Soares, M. Villegas, A. Gonzalez-Agirre, M. Krallinger, J. Armengol-Estapé, "Medical word embeddings for Spanish: Development and evaluation," 2019.</li>
-    <li>[7] A. Ng (DeepLearning.AI), "Sequence Models," Coursera — coursera.org/learn/nlp-sequence-models</li>
-  </ul>
-  <footer class="small"><span>REFERENCE</span><span>15 / 16</span></footer>
-</section>
+  <nav class="nav" aria-label="Slide navigation">
+    <button type="button" id="prev" title="Slide trước" aria-label="Slide trước">‹</button>
+    <span class="counter" id="counter">1 / 18</span>
+    <button type="button" id="next" title="Slide sau" aria-label="Slide sau">›</button>
+  </nav>
+  <div class="progress" aria-hidden="true"><span id="progress"></span></div>
 
-<!-- ============ SLIDE 16 : THANK YOU ============ -->
-<section class="slide final-cta" id="s16">
-  <div class="eyebrow" style="margin-left:auto; margin-right:auto;"><span class="dot"></span>Cảm ơn</div>
-  <h1 class="title">Cảm ơn quý thầy/cô và mọi người đã lắng nghe</h1>
-  <h2 class="subtitle" style="margin-left:auto; margin-right:auto; text-align:center;">Rất mong nhận được câu hỏi, góp ý và thảo luận từ quý thầy/cô để hoàn thiện báo cáo.</h2>
-  <div class="title-meta">
-    <div><div class="k">Người thực hiện</div><div class="v">Trần Công Tuấn</div></div>
-    <div><div class="k">Email</div><div class="v">24022485@vnu.edu.vn</div></div>
-  </div>
-  <footer class="small"><span>Q&A</span><span>16 / 16</span></footer>
-</section>
+  <script>
+    const slides = Array.from(document.querySelectorAll("main.deck > section.slide"));
+    const prevButton = document.getElementById("prev");
+    const nextButton = document.getElementById("next");
+    const counter = document.getElementById("counter");
+    const progress = document.getElementById("progress");
+    let current = 0;
 
-<script>
-  const slides = Array.from(document.querySelectorAll('section.slide'));
-  const dotsNav = document.getElementById('dots');
-  const progress = document.getElementById('progress');
+    function clampSlide(index) {
+      return Math.max(0, Math.min(slides.length - 1, index));
+    }
 
-  slides.forEach((s, i) => {
-    const a = document.createElement('a');
-    a.href = '#' + s.id;
-    a.title = s.id;
-    dotsNav.appendChild(a);
-  });
-  const dotEls = Array.from(dotsNav.children);
+    function showSlide(index) {
+      current = clampSlide(index);
+      slides.forEach((slide, slideIndex) => {
+        slide.classList.toggle("active", slideIndex === current);
+      });
+      prevButton.disabled = current === 0;
+      nextButton.disabled = current === slides.length - 1;
+      counter.textContent = `${current + 1} / ${slides.length}`;
+      progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+      history.replaceState(null, "", `#${current + 1}`);
+    }
 
-  function onScroll(){
-    const y = window.scrollY;
-    const doc = document.documentElement;
-    const max = doc.scrollHeight - doc.clientHeight;
-    progress.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
+    function readHash() {
+      const requested = Number.parseInt(window.location.hash.replace("#", ""), 10);
+      if (!Number.isNaN(requested)) {
+        showSlide(requested - 1);
+      } else {
+        showSlide(0);
+      }
+    }
 
-    let idx = 0, best = Infinity;
-    slides.forEach((s,i) => {
-      const d = Math.abs(s.getBoundingClientRect().top);
-      if(d < best){ best = d; idx = i; }
+    prevButton.addEventListener("click", () => showSlide(current - 1));
+    nextButton.addEventListener("click", () => showSlide(current + 1));
+
+    document.addEventListener("keydown", (event) => {
+      const tagName = event.target.tagName.toLowerCase();
+      if (["input", "textarea", "select"].includes(tagName)) return;
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        showSlide(current + 1);
+      }
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        showSlide(current - 1);
+      }
+      if (event.key === "Home") showSlide(0);
+      if (event.key === "End") showSlide(slides.length - 1);
     });
-    dotEls.forEach((d,i) => d.classList.toggle('active', i === idx));
-  }
-  document.body.addEventListener('scroll', onScroll, {passive:true});
-  onScroll();
 
-  window.addEventListener('keydown', (e) => {
-    let idx = dotEls.findIndex(d => d.classList.contains('active'));
-    if(e.key === 'ArrowDown' || e.key === 'PageDown'){ e.preventDefault(); slides[Math.min(idx+1, slides.length-1)].scrollIntoView({behavior:'smooth'}); }
-    if(e.key === 'ArrowUp' || e.key === 'PageUp'){ e.preventDefault(); slides[Math.max(idx-1,0)].scrollIntoView({behavior:'smooth'}); }
-  });
-</script>
+    window.addEventListener("hashchange", readHash);
+    readHash();
+  </script>
 </body>
 </html>

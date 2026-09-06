@@ -1379,7 +1379,7 @@ else:
             <h3>Dữ liệu nhiễu và không nhất quán</h3>
             <ul class="bullets dense-bullets">
               <li>Ranh giới entity bị co giãn: lúc chỉ lấy tên gốc, lúc lấy cả cụm dài.</li>
-              <li>Một số nhãn vàng chứa thành phần gây nhiễu như chủ ngữ hoặc từ dẫn.</li>
+              <li>Một số nhãn thật chứa thành phần gây nhiễu như chủ ngữ hoặc từ dẫn.</li>
               <li>Model có thể bắt cụm y khoa hợp lý nhưng vẫn bị tính sai vì lệch guideline.</li>
             </ul>
           </div>
@@ -1442,9 +1442,9 @@ else:
         <div class="panel">
           <h3>Nguyên nhân gốc rễ</h3>
           <ul class="bullets dense-bullets">
-            <li>`viêm màng não do virus` và `bệnh thiếu máu thiếu sắt` đều là cụm bệnh đầy đủ trong y văn, nhưng nhãn vàng chỉ lấy phần tên bệnh gốc.</li>
+            <li>`viêm màng não do virus` và `bệnh thiếu máu thiếu sắt` đều là cụm bệnh đầy đủ trong y văn, nhưng nhãn thật chỉ lấy phần tên bệnh gốc.</li>
             <li>PhoBERT học quan hệ ngữ nghĩa liền mạch trong cụm danh từ, nên có xu hướng mở rộng span đến hết bổ ngữ nguyên nhân hoặc phân loại.</li>
-            <li>Ở mẫu chẩn đoán mắt, nhãn vàng đưa cả `bác sĩ` vào entity; dự đoán của model loại bỏ chủ thể và giữ cụm hành động chẩn đoán.</li>
+            <li>Ở mẫu chẩn đoán mắt, nhãn thật đưa cả `bác sĩ` vào entity; dự đoán của model loại bỏ chủ thể và giữ cụm hành động chẩn đoán.</li>
             <li>Không phải mọi boundary error đều là hiểu sai y khoa, nhiều lỗi là lệch giữa hiểu ngữ nghĩa và quy ước gán nhãn.</li>
           </ul>
         </div>
@@ -1467,7 +1467,7 @@ else:
           </div>
           <div class="note-box">
             <h3>`nội soi ngược dòng`: Chẩn đoán ↔ Điều trị</h3>
-            <p>ERCP có vai trò kép: vừa khảo sát đường mật, vừa can thiệp lấy sỏi hoặc xử lý tắc mật. Khi câu có cụm `các xét nghiệm này có thể bao gồm ...`, ngữ cảnh nghiêng mạnh về `bien_phap_chan_doan`, dù nhãn vàng là `bien_phap_dieu_tri`.</p>
+            <p>ERCP có vai trò kép: vừa khảo sát đường mật, vừa can thiệp lấy sỏi hoặc xử lý tắc mật. Khi câu có cụm `các xét nghiệm này có thể bao gồm ...`, ngữ cảnh nghiêng mạnh về `bien_phap_chan_doan`, dù nhãn thật là `bien_phap_dieu_tri`.</p>
           </div>
         </div>
         <div class="panel flat">
@@ -1512,7 +1512,7 @@ else:
               <li>Nhiều cụm có hình thái rất giống thuật ngữ y khoa, nhưng annotation của câu đó không đánh dấu.</li>
               <li>Augmentation giúp tăng recall, nhưng có thể làm model nhạy hơn với mẫu lexical quen thuộc.</li>
               <li>FP cao cho thấy bài toán cần cân bằng giữa nhận diện đủ entity và không mở rộng ra các cụm mô tả thông thường.</li>
-              <li>Một phần FP/FN nên được audit thủ công vì có thể là bất đồng với nhãn vàng, không thuần là lỗi model.</li>
+              <li>Một phần FP/FN nên được audit thủ công vì có thể là bất đồng với nhãn thật, không thuần là lỗi model.</li>
             </ul>
           </div>
         </div>
